@@ -10,6 +10,7 @@ import com.duoc.carrito.Model.CarritoModel;
 import com.duoc.carrito.Repository.CarritoRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -31,6 +32,14 @@ public class CarritoService {
     @Autowired
     private ObjectMapper objectMapper; // Para convertir el Carrito a JSON
 
+    // URLs inyectadas desde application.properties / variables de entorno del docker-compose
+    // (antes estaban hardcodeadas como "host.docker.internal", que no resuelve fuera de Docker Desktop)
+    @Value("${usuarios.service.url}")
+    private String usuariosServiceUrl;
+
+    @Value("${productos.service.url}")
+    private String productosServiceUrl;
+
     @Transactional
     public CarritoModel agregarAlCarrito(Long usuarioId, Long productoId, Integer cantidad, String token) {
 
@@ -41,7 +50,7 @@ public class CarritoService {
         // 1. CONEXIÓN AL MICROSERVICIO DE USUARIOS (ExpressNow - 8081)
         UsuarioDto usuario = webClientBuilder.build()
                 .get()
-                .uri("http://host.docker.internal:8081/api/usuarios/" + usuarioId)
+                .uri(usuariosServiceUrl + "/api/usuarios/" + usuarioId)
                 .header("Authorization", token)
                 .retrieve()
                 .bodyToMono(UsuarioDto.class)
@@ -54,7 +63,7 @@ public class CarritoService {
         // 2. CONEXIÓN AL MICROSERVICIO DE PRODUCTOS (Productos - 8082)
         ProductoDto producto = webClientBuilder.build()
                 .get()
-                .uri("http://host.docker.internal:8082/api/productos/" + productoId)
+                .uri(productosServiceUrl + "/api/productos/" + productoId)
                 .header("Authorization", token)
                 .retrieve()
                 .bodyToMono(ProductoDto.class)

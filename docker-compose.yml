@@ -37,20 +37,25 @@ services:
 
   # === MICROSERVICIO 2: PRODUCTOS ===
   productos-service:
-    image: felipeduran33/expressnow-productos:latest
-    container_name: productos-service
-    ports:
-      - "8082:8082"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/expressnow_productos_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=root
-      - SPRING_DATASOURCE_PASSWORD=rootpassword
-      - JWT_SECRET=EstaEsUnaClaveSuperSecretaParaExpressNow2024
-    depends_on:
-      mysql-db:
-        condition: service_healthy
-    networks:
-      - expressnow-network
+   image: felipeduran33/expressnow-productos:latest
+   container_name: productos-service
+   ports:
+   - "8082:8082"
+   environment:
+     - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/expressnow_productos_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+     - SPRING_DATASOURCE_USERNAME=root
+     - SPRING_DATASOURCE_PASSWORD=rootpassword
+     - JWT_SECRET=EstaEsUnaClaveSuperSecretaParaExpressNow2024
+     - AWS_REGION=us-east-1
+     - SQS_QUEUE_NAME=expressnow-alertas-stock-cola
+     - AWS_ACCESS_KEY_ID=ASIARL53Y47RAERCQKV7
+     - AWS_SECRET_ACCESS_KEY=daggtC35KFjb2f7/IzFtUOiPM0OoYJVScp5bvp1J
+     - AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEIX...
+   depends_on:
+    mysql-db:
+      condition: service_healthy
+   networks:
+    - expressnow-network
 
   # === MICROSERVICIO 3: CARRITO ===
   carrito-service:

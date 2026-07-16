@@ -1,4 +1,4 @@
-package com.duoc.carrito.Config;
+package com.duoc.productos.Config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -8,14 +8,9 @@ import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 
 /**
- * Spring Cloud AWS (spring.cloud.aws.credentials.access-key / secret-key) solo soporta
- * credenciales PERMANENTES: no existe una propiedad para el session token.
- * Como AWS Academy entrega credenciales temporales (STS), es OBLIGATORIO enviar el
- * session token junto con el access key y el secret key, o AWS rechaza la petición
- * con "The security token included in the request is invalid".
- *
- * Este bean reemplaza al AwsCredentialsProvider auto-configurado (incompleto) por uno
- * que sí arma credenciales de sesión completas (access key + secret key + session token).
+ * Igual que en carrito: Spring Cloud AWS no soporta session token en
+ * spring.cloud.aws.credentials.*, así que hay que armar el AwsCredentialsProvider
+ * manualmente con credenciales de sesión completas (necesario para AWS Academy).
  */
 @Configuration
 public class AwsCredentialsConfig {

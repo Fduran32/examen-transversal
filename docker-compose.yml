@@ -1,0 +1,95 @@
+services:
+  # === BASE DE DATOS MYSQL ===
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: expressnow_db
+    ports:
+      - "3306:3306"
+    networks:
+      - expressnow-network
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pgetrootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # === MICROSERVICIO 1: USUARIOS Y AUTENTICACIÓN ===
+  usuarios-service:
+    image: felipeduran33/expressnow-usuarios:latest
+    container_name: usuarios-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/expressnow_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+      - JWT_SECRET=EstaEsUnaClaveSuperSecretaParaExpressNow2024
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - expressnow-network
+
+  # === MICROSERVICIO 2: PRODUCTOS ===
+  productos-service:
+    image: felipeduran33/expressnow-productos:latest
+    container_name: productos-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/expressnow_productos_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+      - JWT_SECRET=EstaEsUnaClaveSuperSecretaParaExpressNow2024
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - expressnow-network
+
+  # === MICROSERVICIO 3: CARRITO ===
+  carrito-service:
+    image: felipeduran33/expressnow-carrito:latest
+    container_name: carrito-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/expressnow_carrito_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+      - JWT_SECRET=EstaEsUnaClaveSuperSecretaParaExpressNow2024
+
+      # ---- CONFIGURACIÓN DE REGIÓN (N. VIRGINIA) ----
+      - AWS_REGION=us-east-1
+
+      # ---- VARIABLES DE LA COLA SQS EN US-EAST-1 ----
+      - SQS_QUEUE_NAME=expressnow-alertas-stock-cola
+      - AWS_SQS_QUEUE_NAME=expressnow-alertas-stock-cola
+      - AWS_SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/094346209250/expressnow-alertas-stock-cola
+      - SQS_QUEUE_URL=https://sqs.us-east-1.amazonaws.com/094346209250/expressnow-alertas-stock-cola
+      - SQS_URL=https://sqs.us-east-1.amazonaws.com/094346209250/expressnow-alertas-stock-cola
+
+      # ---- CREDENCIALES DE AWS ACADEMY INTEGRADAS ----
+      - AWS_ACCESS_KEY_ID=ASIARL53Y47RAERCQKV7
+      - AWS_SECRET_ACCESS_KEY=daggtC35KFjb2f7/IzFtUOiPM0OoYJVScp5bvp1J
+      - AWS_SESSION_TOKEN=IQoJb3JpZ2luX2VjEIX//////////wEaCXVzLXdlc3QtMiJGMEQCIFhU/UNb0pzMt39ILAu6Bo/stXQGhLWvk2EPDFBO3PDjAiA0gi/FHfdAU1elEY2AjPqmlGZDQpXVNPbLB8p1C0CirCqwAghOEAAaDDA5NDM0NjIwOTI1MCIMq59ZYbIu89sWPNP4Ko0CP0c0GrnQvHsEP/t/cxxvroEfUWFcAnMZVYXLrkWmayryCce0zshUgAAmxh5igcjtaDBGA6GEhd0YOV+IYILFY66+NJuaMdG+Yg523ivW3TbSPa5IQVCn/NgcWzZnl875gDw6B3uSYv9Bus4sKl4sPTojiQN6DmyG7lYXKylF49CPzS3+45bVUwnK5hg+K5iyACzeX2NloscqopM6SuVeuelSkn8RxWyVh3vOhmnWdm+jn05tWY8+Mr9aAyNIZHnSrGDjp3j3Qtt6c1GoouddCOK2JSdCfZ1KX2OosSmS9/oZxxXm/y/uurAqnGm6OJS4my95WUe8TXu7mDHdepdAhOzqNXJw3Wj1m9awYNEwmI7l0gY6ngGHamfqUUBckLSRLze88l10AUyDIaNrwnLfijfiVhJ+cajOuniXEMLDYGNWjnnmYzzOOVktmCT109iOd2IqHNHZX5M2o3M1c87+X7tsWar0KQfiQF5SB/2V2FfHc5FdBpYiC1HFPQ6h/8e3gUJM7PJWL2/21tl2jLs5rCM7tH/NeFHUmVXxUBUVqTDZ//4h2aiFbBKvmhUhA/iKHlQIYw==
+
+      - USUARIOS_SERVICE_URL=http://usuarios-service:8081
+      - PRODUCTOS_SERVICE_URL=http://productos-service:8082
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - expressnow-network
+
+networks:
+  expressnow-network:
+    driver: bridge
+
+volumes:
+  mysql-data:

@@ -1,0 +1,93 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master  # o la rama principal que utilices, ej: main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven' # Cachea las dependencias para que el pipeline corra más rápido
+
+      - name: Iniciar sesión en Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      # === PASO CLAVE: Compilar los archivos .jar con Maven ===
+      - name: Compilar microservicios con Maven
+        run: |
+          # Dar permisos de ejecución al Maven Wrapper en cada servicio y compilar
+          
+          echo "Compilando microservicio Usuarios..."
+          cd expressnow && chmod +x mvnw && ./mvnw clean package -DskipTests && cd ..
+
+          echo "Compilando microservicio Productos..."
+          cd productos && chmod +x mvnw && ./mvnw clean package -DskipTests && cd ..
+
+          echo "Compilando microservicio Carrito..."
+          cd carrito && chmod +x mvnw && ./mvnw clean package -DskipTests && cd ..
+
+      # === Construir y subir imágenes de Docker (ahora sí encontrarán el target/*.jar) ===
+      - name: Construir y subir imágenes de Docker
+        run: |
+          # Construir y subir Usuarios
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-usuarios:latest ./expressnow
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-usuarios:latest
+
+          # Construir y subir Productos
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-productos:latest ./productos
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-productos:latest
+
+          # Construir y subir Carrito
+          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-carrito:latest ./carrito
+          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-carrito:latest
+
+  deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Desplegar en AWS EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Instalar Docker y Docker Compose en la EC2 si no están instalados
+            if ! command -v docker &> /dev/null; then
+              echo "Instalando Docker..."
+              sudo apt-get update
+              sudo apt-get install -y docker.io docker-compose-v2
+              sudo usermod -aG docker ubuntu
+            fi
+
+            # Iniciar sesión en Docker Hub dentro de la EC2 para evitar el "pull access denied"
+            echo "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}" | sudo docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+            # Crear carpeta del proyecto en la EC2 si no existe
+            mkdir -p ~/expressnow
+            cd ~/expressnow
+            
+            # Descargar el docker-compose.yml actualizado desde tu repositorio de GitHub
+            curl -o docker-compose.yml https://raw.githubusercontent.com/Fduran32/examen-transversal/master/docker-compose.yml
+            
+            # Descargar las 3 nuevas imágenes desde Docker Hub usando credenciales autorizadas
+            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-carrito:latest
+            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-productos:latest
+            sudo docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/expressnow-usuarios:latest
+            
+            # Detener contenedores previos si existen y levantar el entorno limpio en segundo plano
+            sudo docker compose down || true
+            sudo docker compose up -d

@@ -1,6 +1,7 @@
 package com.duoc.productos.Service;
 
 import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -8,8 +9,11 @@ public class SqsStockAlertService {
 
     private final SqsTemplate sqsTemplate;
 
-    // URL de la cola SQS de alertas en AWS
-    private final String queueUrl = "https://sqs.us-east-1.amazonaws.com/123456789012/expressnow-alertas-stock-cola";
+    // Antes estaba hardcodeada con una cuenta de AWS de ejemplo (123456789012) que no existe.
+    // Ahora se inyecta el NOMBRE de la cola real desde application.properties / docker-compose,
+    // igual que hace carrito-service.
+    @Value("${aws.queue.name}")
+    private String queueName;
 
     public SqsStockAlertService(SqsTemplate sqsTemplate) {
         this.sqsTemplate = sqsTemplate;
@@ -23,10 +27,7 @@ public class SqsStockAlertService {
                     productoId, nombreProducto
             );
 
-            sqsTemplate.send(to -> to
-                    .queue(queueUrl)
-                    .payload(mensajeJson)
-            );
+            sqsTemplate.send(queueName, mensajeJson);
             System.out.println("⚠️ Alerta de stock crítico enviada a AWS SQS para: " + nombreProducto);
         } catch (Exception e) {
             System.err.println("❌ Error al enviar alerta a SQS: " + e.getMessage());
